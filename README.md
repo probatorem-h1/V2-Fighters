@@ -1,1 +1,1 @@
-echo "# FingerMonkeysContract" >> README.md
+V2 Fighters

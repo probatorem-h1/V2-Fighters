@@ -2604,41 +2604,60 @@ interface IDrop {
     function getInfo() external view returns (Info memory);
 }
 
-contract Dev is
+contract V2Fighters is
     ERC721Enumerable,
     Ownable,
     IDrop,
-    PullPayment,
-    RandomlyAssigned
+    RandomlyAssigned,
+    PullPayment
 {
     using SafePct for uint256;
     using SafeMathLite for uint256;
     using Strings for uint256;
-    //address marketAddress = 0x72af9c869A4759e6D50E9656C0741b395532C3Dd;
-    address public ownerAddress = 0x194d51cc109bFB17887cd7731cf967cA27ed2e21;
+    address public marketAddress = 0x7a3CdB2364f92369a602CAE81167d0679087e6a3;
+    address public ebisusPaymentAddress =
+        0x454cfAa623A629CC0b4017aEb85d54C42e91479d;
+    address public V1Address = 0x0e8f883124c1c234d64Ec566adC5966f1832d207;
+    address public dwsPaymentAddress =
+        0xE024bb3E3bD1B68C101f604f742CeA66ecC4A2d2;
+    address public fightersPaymentAddress =
+        0x7c53098AED50e7d2b5d0a4a89eF5B9C31a7b6AEE;
+    uint256 public dwsPaymentTotal = 236811 ether;
     string public baseURI;
     string public baseExtension = ".json";
-    string public notRevealedUri;
-    uint256 public regCost = 3 ether;
-    uint256 public memCost = 2 ether;
-    uint256 public whiteCost = 1 ether;
-    uint256 public maxTokens = 100;
+    uint256 public regCost = 395 ether;
+    uint256 public memCost = 295 ether;
+    uint256 public whiteCost = 295 ether;
+    uint256 public maxTokens = 4000;
     uint256 public maxMintAmount = 5;
-    uint256 public nftPerAddressLimit = 100;
+    uint256 public nftPerAddressLimit = 4000;
     uint256 public nftPerWhitelistAddress = 5;
-    address[] private payees;
-    uint16[] private shares;
+    uint256 internal fee = 1000;
+    uint256 internal dwsFee = 7500;
+    uint256 internal scale = 10000;
     bool public paused = true;
-    bool public revealed = true;
+    bool private airdropClaimed = false;
     mapping(address => bool) private whitelistedAddresses;
-    mapping(address => uint256) public addressMintedBalance;
+    mapping(address => bool) private hasClaimed;
 
     constructor(
         string memory _name,
         string memory _symbol,
-        string memory _initBaseURI
-    ) RandomlyAssigned(5555, 1) ERC721(_name, _symbol) {
+        string memory _initBaseURI,
+        address _marketAddress,
+        address _ebisusPaymentAddress,
+        address _V1Address,
+        address _dwsPaymentAddress,
+        address _fightersPaymentAddress,
+        uint256 _dwsPaymentTotal
+    ) RandomlyAssigned(4000, 1) ERC721(_name, _symbol) {
         setBaseURI(_initBaseURI);
+        marketAddress = _marketAddress;
+        ebisusPaymentAddress = _ebisusPaymentAddress;
+        V1Address = _V1Address;
+        dwsPaymentAddress = _dwsPaymentAddress;
+        fightersPaymentAddress = _fightersPaymentAddress;
+        dwsPaymentTotal = _dwsPaymentTotal;
     }
 
     // internal
@@ -2647,7 +2666,6 @@ contract Dev is
     }
 
     // public
-
     function mint(uint256 _mintAmount) public payable override {
         uint256 total = 0;
         require(!paused, "the contract is paused");
@@ -2658,31 +2676,37 @@ contract Dev is
             "max mint amount per transaction exceeded"
         );
         require(supply + _mintAmount <= maxTokens, "max NFT limit exceeded");
-
-        if (msg.sender != owner()) {
-            uint256 ownerMintedCount = addressMintedBalance[msg.sender];
-            require(
-                ownerMintedCount + _mintAmount <= nftPerAddressLimit,
-                "max NFT per address exceeded"
-            );
-            for (uint256 i = 1; i <= _mintAmount; i++) {
-                total += mintCost(msg.sender);
-            }
-            require(msg.value >= total, "insufficient funds");
-        }
-
         for (uint256 i = 1; i <= _mintAmount; i++) {
-            addressMintedBalance[msg.sender]++;
+            total += mintCost(msg.sender);
+        }
+        require(msg.value >= total, "insufficient funds");
+        //ebisus payment
+        Market market = Market(marketAddress);
+        uint256 ebisusAmount = msg.value.mulDiv(fee, scale);
+        market.addToEscrow{value: ebisusAmount}(ebisusPaymentAddress);
+        //dws payment
+        if (payments(dwsPaymentAddress) < dwsPaymentTotal) {
+            uint256 dwsAmount = msg.value.mulDiv(dwsFee, scale);
+            _asyncTransfer(dwsPaymentAddress, dwsAmount);
+        }
+        //mint
+        for (uint256 i = 1; i <= _mintAmount; i++) {
             uint256 id = nextToken();
             _safeMint(msg.sender, id);
         }
-        /*Market market = Market(marketAddress);
-        uint256 len = payees.length;
-        uint256 amount;
-        for (uint256 i = 0; i < len; i++) {
-            amount = total.mulDiv(shares[i], 10000);
-            market.addToEscrow{value: amount}(payees[i]);
-        }*/
+    }
+
+    function claim() public {
+        require(!hasClaimed[msg.sender], "Address Has Already Claimed");
+        uint256 supply = totalSupply();
+        uint256 balance = IERC721(V1Address).balanceOf(msg.sender);
+        uint256 claimAmount = balance / 3;
+        require(claimAmount + supply <= maxTokens, "Max NFT Limit Exceeded");
+        hasClaimed[msg.sender] = true;
+        if (claimAmount > 0) {
+            uint256 id = nextToken();
+            _safeMint(msg.sender, id);
+        }
     }
 
     function isWhitelisted(address _user) public view returns (bool) {
@@ -2714,10 +2738,6 @@ contract Dev is
             "ERC721Metadata: URI query for nonexistent token"
         );
 
-        if (revealed == false) {
-            return notRevealedUri;
-        }
-
         string memory currentBaseURI = _baseURI();
         return
             bytes(currentBaseURI).length > 0
@@ -2738,17 +2758,17 @@ contract Dev is
                 return whiteCost;
             }
         }
-        /*if (isEbisusBayMember(_minter)) {
+        if (isEbisusBayMember(_minter)) {
             return memCost;
-        }*/
+        }
         return regCost;
     }
 
     //Checks if sender is member
 
-    /*function isEbisusBayMember(address _address) private view returns (bool) {
+    function isEbisusBayMember(address _address) public view returns (bool) {
         return Market(marketAddress).isMember(_address);
-    }*/
+    }
 
     //Return max supply of tokens
     function maxSupply() external view override returns (uint256) {
@@ -2774,56 +2794,45 @@ contract Dev is
     }
 
     //only owner
-    function ownerAddressChange(address _ownerAddress) public onlyOwner {
-        ownerAddress = _ownerAddress;
-    }
 
-    function reserveMint(uint256 _mintAmount, address _to)
-        public
-        payable
-        onlyOwner
-    {
+    function reserveMint(uint256 _mintAmount, address _to) public onlyOwner {
+        uint256 supply = totalSupply();
+        require(supply + _mintAmount <= maxTokens, "max NFT limit exceeded");
         for (uint256 i = 1; i <= _mintAmount; i++) {
-            addressMintedBalance[msg.sender]++;
             uint256 id = nextToken();
             _safeMint(_to, id);
         }
     }
 
-    function setPaymentShares(
-        address[] calldata _newPayees,
-        uint16[] calldata _newShares
-    ) external onlyOwner {
-        require(_newPayees.length != 0, "empty payees");
-        require(_newPayees.length == _newShares.length, "wrong payee numbers");
-
-        if (!isCorrectShares(_newShares)) {
-            revert("invalid shares");
+    function airdropMint(address _to) public onlyOwner {
+        require(airdropClaimed = false, "already minted");
+        airdropClaimed = true;
+        uint16[9] memory tokenIds = [
+            771,
+            836,
+            2192,
+            3942,
+            2928,
+            1144,
+            3906,
+            690,
+            3187
+        ];
+        for (uint256 i = 1; i <= tokenIds.length; i++) {
+            _safeMint(_to, tokenIds[i]);
         }
-        payees = _newPayees;
-        shares = _newShares;
     }
 
-    function getPayees() public view returns (address[] memory) {
-        return payees;
+    function setV1Address(address _V1Address) public onlyOwner {
+        V1Address = _V1Address;
     }
 
-    function getShares() public view returns (uint16[] memory) {
-        return shares;
+    function setDWSAddress(address _address) public onlyOwner {
+        dwsPaymentAddress = _address;
     }
 
-    function isCorrectShares(uint16[] memory _shares)
-        private
-        pure
-        returns (bool)
-    {
-        uint256 len = _shares.length;
-        uint256 totalFees;
-        for (uint256 i = 0; i < len; i++) {
-            totalFees += _shares[i];
-        }
-
-        return totalFees == 10000;
+    function setDWSPaymentTotal(uint256 _payment) public onlyOwner {
+        dwsPaymentTotal = _payment;
     }
 
     function setMemCost(uint256 _newCost) public onlyOwner {
@@ -2865,9 +2874,9 @@ contract Dev is
 
     function withdraw() public payable onlyOwner {
         // =============================================================================
-        (bool os, ) = payable(ownerAddress).call{value: address(this).balance}(
-            ""
-        );
+        (bool os, ) = payable(fightersPaymentAddress).call{
+            value: address(this).balance
+        }("");
         require(os);
         // =============================================================================
     }
