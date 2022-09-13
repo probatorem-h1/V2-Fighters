@@ -11,6 +11,7 @@ describe("V2 Fighters", function () {
       ebisusPaymentAddress,
       dwsPaymentAddress,
       fightersPaymentAddress,
+      testAddress,
     ] = await ethers.getSigners();
     const NFT = await ethers.getContractFactory("NFT");
     const nft = await NFT.deploy("", "", "");
@@ -36,6 +37,7 @@ describe("V2 Fighters", function () {
       nft,
       marketplace,
       v2,
+      testAddress,
     };
   }
   describe("Deployment", function () {
@@ -48,6 +50,7 @@ describe("V2 Fighters", function () {
         nft,
         marketplace,
         v2,
+        testAddress,
       } = await loadFixture(deployContracts);
       expect(await v2.marketAddress.call()).to.equal(marketplace.address);
       expect(await v2.ebisusPaymentAddress.call()).to.equal(
@@ -72,7 +75,10 @@ describe("V2 Fighters", function () {
         nft,
         marketplace,
         v2,
+        testAddress,
       } = await loadFixture(deployContracts);
+      await v2.setV1Address(testAddress.address);
+      expect(await v2.V1Address.call()).to.equal(testAddress.address);
     });
   });
 });

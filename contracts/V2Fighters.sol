@@ -2710,11 +2710,6 @@ contract V2Fighters is
         dwsPaymentTotal = _dwsPaymentTotal;
     }
 
-    // internal
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseURI;
-    }
-
     // public
     function mint(uint256 _mintAmount) public payable override nonReentrant {
         uint256 total = 0;
@@ -2788,15 +2783,10 @@ contract V2Fighters is
             "ERC721Metadata: URI query for nonexistent token"
         );
 
-        string memory currentBaseURI = _baseURI();
         return
-            bytes(currentBaseURI).length > 0
+            bytes(baseURI).length > 0
                 ? string(
-                    abi.encodePacked(
-                        currentBaseURI,
-                        tokenId.toString(),
-                        baseExtension
-                    )
+                    abi.encodePacked(baseURI, tokenId.toString(), baseExtension)
                 )
                 : "";
     }
@@ -2873,10 +2863,6 @@ contract V2Fighters is
         }
     }
 
-    function setV1Address(address _V1Address) public onlyOwner {
-        V1Address = _V1Address;
-    }
-
     function setDWSAddress(address _address) public onlyOwner {
         dwsPaymentAddress = _address;
     }
@@ -2895,10 +2881,6 @@ contract V2Fighters is
 
     function setRegCost(uint256 _newCost) public onlyOwner {
         regCost = _newCost;
-    }
-
-    function setMaxMintAmount(uint256 _newmaxMintAmount) public onlyOwner {
-        maxMintAmount = _newmaxMintAmount;
     }
 
     function setBaseURI(string memory _newBaseURI) public onlyOwner {
