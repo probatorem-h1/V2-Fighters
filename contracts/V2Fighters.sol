@@ -2582,6 +2582,55 @@ abstract contract Market {
     function addToEscrow(address _address) external payable virtual;
 }
 
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor() {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and making it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        _nonReentrantBefore();
+        _;
+        _nonReentrantAfter();
+    }
+
+    function _nonReentrantBefore() private {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+    }
+
+    function _nonReentrantAfter() private {
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
+
 interface IDrop {
     struct Info {
         uint256 regularCost;
@@ -2609,7 +2658,8 @@ contract V2Fighters is
     Ownable,
     IDrop,
     RandomlyAssigned,
-    PullPayment
+    PullPayment,
+    ReentrancyGuard
 {
     using SafePct for uint256;
     using SafeMathLite for uint256;
@@ -2666,7 +2716,7 @@ contract V2Fighters is
     }
 
     // public
-    function mint(uint256 _mintAmount) public payable override {
+    function mint(uint256 _mintAmount) public payable override nonReentrant {
         uint256 total = 0;
         require(!paused, "the contract is paused");
         uint256 supply = totalSupply();
@@ -2696,7 +2746,7 @@ contract V2Fighters is
         }
     }
 
-    function claim() public {
+    function claim() public nonReentrant {
         require(!hasClaimed[msg.sender], "Address Has Already Claimed");
         uint256 supply = totalSupply();
         uint256 balance = IERC721(V1Address).balanceOf(msg.sender);
