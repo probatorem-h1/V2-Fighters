@@ -2696,19 +2696,9 @@ contract V2Fighters is
     constructor(
         string memory _name,
         string memory _symbol,
-        string memory _initBaseURI,
-        address _marketAddress,
-        address _ebisusPaymentAddress,
-        address _V1Address,
-        address _dwsPaymentAddress,
-        address _fightersPaymentAddress
+        string memory _initBaseURI
     ) RandomlyAssigned(maxTokens, reserveMintEnd) ERC721(_name, _symbol) {
         setBaseURI(_initBaseURI);
-        marketAddress = _marketAddress;
-        ebisusPaymentAddress = _ebisusPaymentAddress;
-        V1Address = _V1Address;
-        dwsPaymentAddress = _dwsPaymentAddress;
-        fightersPaymentAddress = _fightersPaymentAddress;
     }
 
     // public
