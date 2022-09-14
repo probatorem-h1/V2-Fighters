@@ -2686,7 +2686,7 @@ contract V2Fighters is
     uint256 internal dwsFee = 7500;
     uint256 internal scale = 10000;
     uint256 internal reserveMintIndex = 0;
-    uint256 internal reserveMintEnd = 75;
+    uint256 public reserveMintEnd = 75;
     bool public mintPaused = true;
     bool public claimPaused = true;
     bool internal airdropClaimed = false;
@@ -2733,6 +2733,9 @@ contract V2Fighters is
         //dws payment
         if (payments(dwsPaymentAddress) < dwsPaymentTotal) {
             uint256 dwsAmount = msg.value.mulDiv(dwsFee, scale);
+            if (payments(dwsPaymentAddress) + dwsAmount > dwsPaymentTotal) {
+                dwsAmount = dwsPaymentTotal - payments(dwsPaymentAddress);
+            }
             _asyncTransfer(dwsPaymentAddress, dwsAmount);
         }
         //mint
@@ -2840,25 +2843,6 @@ contract V2Fighters is
             _safeMint(_to, reserveMintIndex);
         }
     }
-
-    /*function airdropMint(address _to) public onlyOwner {
-        require(airdropClaimed == false, "already minted");
-        airdropClaimed = true;
-        uint16[9] memory tokenIds = [
-            771,
-            836,
-            2192,
-            3942,
-            2928,
-            1144,
-            3906,
-            690,
-            3187
-        ];
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            _safeMint(_to, tokenIds[i]);
-        }
-    }*/
 
     function setDWSAddress(address _address) public onlyOwner {
         dwsPaymentAddress = _address;

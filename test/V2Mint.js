@@ -136,48 +136,6 @@ describe("V2 Fighters", function () {
     });
   });
   describe("Owner Mints", function () {
-    /*it("Correct Airdrop Mints", async function () {
-      const {
-        owner,
-        ebisusPaymentAddress,
-        dwsPaymentAddress,
-        fightersPaymentAddress,
-        nft,
-        marketplace,
-        v2,
-        testAddress, testAddress2
-      } = await loadFixture(deployContracts);
-      await v2.airdropMint(owner.address);
-      let result = await v2.walletOfOwner(owner.address);
-      let array = [];
-      for (var i = 0; i < result.length; i++) {
-        array.push(parseInt(result[i]));
-      }
-      expect(array[8]).to.equal(3187);
-    });*/
-    /*it("test", async function () {
-      const {
-        owner,
-        ebisusPaymentAddress,
-        dwsPaymentAddress,
-        fightersPaymentAddress,
-        nft,
-        marketplace,
-        v2,
-        testAddress, testAddress2
-      } = await loadFixture(deployContracts);
-      await v2.airdropMint(owner.address);
-      await v2.setRegCost(1);
-      await v2.pause(false);
-      await v2.mint(4, { value: (4 * 10 ** 18).toString() });
-      let result = await v2.walletOfOwner(owner.address);
-
-      let array = [];
-      for (var i = 0; i < result.length; i++) {
-        array.push(parseInt(result[i]));
-      }
-      console.log(array);
-    });*/
     it("Correctly Mints Owner Tokens", async function () {
       const {
         owner,
@@ -190,7 +148,7 @@ describe("V2 Fighters", function () {
         testAddress,
         testAddress2,
       } = await loadFixture(deployContracts);
-      await v2.reserveMint(75, owner.address);
+      await v2.reserveMint(await v2.reserveMintEnd.call(), owner.address);
       expect(await v2.balanceOf(owner.address)).to.equal(75);
     });
   });
@@ -535,5 +493,153 @@ describe("V2 Fighters", function () {
       expect(parseInt(balance[0]) + 1 == parseInt(balance[2])).to.equal(false);
     });
   });
-  describe("Payment", function () {});
+  describe("Payment", function () {
+    it("Calculates Payment for DWS", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.mintPause(false);
+      await v2.setDWSPaymentTotal((5 * 10 ** 18).toString());
+      await v2.setRegCost((1 * 10 ** 18).toString());
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (4 * 10 ** 18).toString() });
+      expect(await v2["payments"](dwsPaymentAddress.address)).to.equal(
+        "3000000000000000000"
+      );
+    });
+
+    it("Stops At Total Amount For DWS", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.mintPause(false);
+      await v2.setDWSPaymentTotal((5 * 10 ** 18).toString());
+      await v2.setRegCost((1 * 10 ** 18).toString());
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (1 * 10 ** 18).toString() });
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (7 * 10 ** 18).toString() });
+      expect(await v2["payments"](dwsPaymentAddress.address)).to.equal(
+        "5000000000000000000"
+      );
+    });
+    it("Calculates Payment for EbisusBay", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.mintPause(false);
+      await v2.setRegCost((1 * 10 ** 18).toString());
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (1 * 10 ** 18).toString() });
+      expect(await marketplace.payment(ebisusPaymentAddress.address)).to.equal(
+        "100000000000000000"
+      );
+    });
+    it("Calculates Payment for Fighters", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.mintPause(false);
+      await v2.setRegCost((1 * 10 ** 18).toString());
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (1 * 10 ** 18).toString() });
+      expect(await ethers.provider.getBalance(v2.address)).to.equal(
+        "150000000000000000"
+      );
+    });
+    it("Allows DWS to Withdraw", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.mintPause(false);
+      await v2.setDWSPaymentTotal((5 * 10 ** 18).toString());
+      await v2.setRegCost((1 * 10 ** 18).toString());
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (4 * 10 ** 18).toString() });
+      priorBalance = await ethers.provider.getBalance(
+        dwsPaymentAddress.address
+      );
+      await v2["withdrawPayments"](dwsPaymentAddress.address);
+      expect(
+        parseInt(await ethers.provider.getBalance(dwsPaymentAddress.address)) -
+          parseInt(priorBalance) >
+          parseInt("2000000000000000000")
+      );
+    });
+    it("Allows Fighters To Withdraw", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.mintPause(false);
+      await v2.setRegCost((1 * 10 ** 18).toString());
+      priorBalance = await ethers.provider.getBalance(
+        fightersPaymentAddress.address
+      );
+      await v2
+        .connect(testAddress2)
+        .mint(1, { value: (1 * 10 ** 18).toString() });
+      await v2.withdraw();
+      expect(
+        parseInt(
+          await ethers.provider.getBalance(fightersPaymentAddress.address)
+        ) -
+          parseInt(priorBalance) >
+          parseInt("140000000000000000")
+      );
+    });
+  });
 });

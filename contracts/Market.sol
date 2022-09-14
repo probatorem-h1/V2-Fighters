@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 
 contract Marketplace {
     address testAddress;
+    mapping(address => uint256) public payment;
 
     constructor(address _testAddress) {
         testAddress = _testAddress;
@@ -18,6 +19,6 @@ contract Marketplace {
     }
 
     function addToEscrow(address _user) external payable {
-        payable(_user).transfer(msg.value);
+        payment[_user] += msg.value;
     }
 }
