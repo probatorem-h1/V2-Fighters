@@ -257,9 +257,27 @@ describe("V2 Fighters", function () {
       } = await loadFixture(deployContracts);
       await v2.claimPause(false);
 
-      await nft.mint(4);
+      await nft.mint(6);
       await v2.claim();
-      expect(await v2.balanceOf(owner.address)).to.equal(1);
+      expect(await v2.balanceOf(owner.address)).to.equal(2);
+    });
+    it("Balance: 9 -> Claims 3", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.claimPause(false);
+
+      await nft.mint(9);
+      await v2.claim();
+      expect(await v2.balanceOf(owner.address)).to.equal(3);
     });
     it("Can't Claim Twice", async function () {
       const {

@@ -2754,8 +2754,10 @@ contract V2Fighters is
         require(claimAmount + supply <= maxTokens, "Max NFT Limit Exceeded");
         hasClaimed[msg.sender] = true;
         if (claimAmount > 0) {
-            uint256 id = nextToken();
-            _safeMint(msg.sender, id);
+            for (uint256 i = 1; i <= claimAmount; i++) {
+                uint256 id = nextToken();
+                _safeMint(msg.sender, id);
+            }
         }
     }
 
