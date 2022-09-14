@@ -6,6 +6,10 @@ pragma solidity ^0.8.0;
 contract Marketplace {
     address testAddress;
 
+    constructor(address _testAddress) {
+        testAddress = _testAddress;
+    }
+
     function isMember(address user) public view returns (bool) {
         if (user == testAddress) {
             return true;

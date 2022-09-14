@@ -2685,10 +2685,13 @@ contract V2Fighters is
     uint256 internal fee = 1000;
     uint256 internal dwsFee = 7500;
     uint256 internal scale = 10000;
-    bool public paused = true;
-    bool private airdropClaimed = false;
-    mapping(address => bool) private whitelistedAddresses;
-    mapping(address => bool) private hasClaimed;
+    uint256 internal reserveMintIndex = 0;
+    uint256 internal reserveMintEnd = 75;
+    bool public mintPaused = true;
+    bool public claimPaused = true;
+    bool internal airdropClaimed = false;
+    mapping(address => bool) public whitelistedAddresses;
+    mapping(address => bool) internal hasClaimed;
 
     constructor(
         string memory _name,
@@ -2698,22 +2701,20 @@ contract V2Fighters is
         address _ebisusPaymentAddress,
         address _V1Address,
         address _dwsPaymentAddress,
-        address _fightersPaymentAddress,
-        uint256 _dwsPaymentTotal
-    ) RandomlyAssigned(4000, 1) ERC721(_name, _symbol) {
+        address _fightersPaymentAddress
+    ) RandomlyAssigned(maxTokens, reserveMintEnd) ERC721(_name, _symbol) {
         setBaseURI(_initBaseURI);
         marketAddress = _marketAddress;
         ebisusPaymentAddress = _ebisusPaymentAddress;
         V1Address = _V1Address;
         dwsPaymentAddress = _dwsPaymentAddress;
         fightersPaymentAddress = _fightersPaymentAddress;
-        dwsPaymentTotal = _dwsPaymentTotal;
     }
 
     // public
     function mint(uint256 _mintAmount) public payable override nonReentrant {
         uint256 total = 0;
-        require(!paused, "the contract is paused");
+        require(!mintPaused, "minting is paused");
         uint256 supply = totalSupply();
         require(_mintAmount > 0, "need to mint at least 1 NFT");
         require(
@@ -2742,6 +2743,7 @@ contract V2Fighters is
     }
 
     function claim() public nonReentrant {
+        require(!claimPaused, "Claim is paused");
         require(!hasClaimed[msg.sender], "Address Has Already Claimed");
         uint256 supply = totalSupply();
         uint256 balance = IERC721(V1Address).balanceOf(msg.sender);
@@ -2752,10 +2754,6 @@ contract V2Fighters is
             uint256 id = nextToken();
             _safeMint(msg.sender, id);
         }
-    }
-
-    function isWhitelisted(address _user) public view returns (bool) {
-        return whitelistedAddresses[_user];
     }
 
     function walletOfOwner(address _owner)
@@ -2793,7 +2791,7 @@ contract V2Fighters is
 
     //Check mint cost for address
     function mintCost(address _minter) public view override returns (uint256) {
-        if (isWhitelisted(_minter)) {
+        if (whitelistedAddresses[_minter]) {
             if (balanceOf(_minter) < nftPerWhitelistAddress) {
                 return whiteCost;
             }
@@ -2815,7 +2813,7 @@ contract V2Fighters is
         return maxTokens;
     }
 
-    //Check if address can mint
+    //returns max per tx
     function canMint(address) external view override returns (uint256) {
         return maxMintAmount;
     }
@@ -2836,16 +2834,15 @@ contract V2Fighters is
     //only owner
 
     function reserveMint(uint256 _mintAmount, address _to) public onlyOwner {
-        uint256 supply = totalSupply();
-        require(supply + _mintAmount <= maxTokens, "max NFT limit exceeded");
+        require(reserveMintIndex + _mintAmount <= reserveMintEnd);
         for (uint256 i = 1; i <= _mintAmount; i++) {
-            uint256 id = nextToken();
-            _safeMint(_to, id);
+            reserveMintIndex += 1;
+            _safeMint(_to, reserveMintIndex);
         }
     }
 
-    function airdropMint(address _to) public onlyOwner {
-        require(airdropClaimed = false, "already minted");
+    /*function airdropMint(address _to) public onlyOwner {
+        require(airdropClaimed == false, "already minted");
         airdropClaimed = true;
         uint16[9] memory tokenIds = [
             771,
@@ -2858,10 +2855,10 @@ contract V2Fighters is
             690,
             3187
         ];
-        for (uint256 i = 1; i <= tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             _safeMint(_to, tokenIds[i]);
         }
-    }
+    }*/
 
     function setDWSAddress(address _address) public onlyOwner {
         dwsPaymentAddress = _address;
@@ -2869,6 +2866,10 @@ contract V2Fighters is
 
     function setDWSPaymentTotal(uint256 _payment) public onlyOwner {
         dwsPaymentTotal = _payment;
+    }
+
+    function setMaxMintAmount(uint256 _mintAmount) public onlyOwner {
+        maxMintAmount = _mintAmount;
     }
 
     function setMemCost(uint256 _newCost) public onlyOwner {
@@ -2887,8 +2888,12 @@ contract V2Fighters is
         baseURI = _newBaseURI;
     }
 
-    function pause(bool _state) public onlyOwner {
-        paused = _state;
+    function mintPause(bool _state) public onlyOwner {
+        mintPaused = _state;
+    }
+
+    function claimPause(bool _state) public onlyOwner {
+        claimPaused = _state;
     }
 
     function addWhiteList(address[] calldata _addresses) public onlyOwner {
