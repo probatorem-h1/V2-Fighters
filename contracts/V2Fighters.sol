@@ -2697,7 +2697,7 @@ contract V2Fighters is
         string memory _name,
         string memory _symbol,
         string memory _initBaseURI
-    ) RandomlyAssigned(maxTokens, reserveMintEnd) ERC721(_name, _symbol) {
+    ) RandomlyAssigned(maxTokens, reserveMintEnd + 1) ERC721(_name, _symbol) {
         setBaseURI(_initBaseURI);
     }
 
