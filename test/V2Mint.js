@@ -204,8 +204,14 @@ describe("V2 Fighters", function () {
         testAddress2,
       } = await loadFixture(deployContracts);
       await v2.claimPause(false);
-      await v2.claim();
-      expect(await v2.balanceOf(owner.address)).to.equal(0);
+      try {
+        await v2.claim();
+        expect(1).to.equal(2);
+      } catch (e) {
+        expect(e.message).to.equal(
+          "VM Exception while processing transaction: reverted with reason string 'Insufficient Balance'"
+        );
+      }
     });
     it("Balance: 3 -> Claims 1", async function () {
       const {
@@ -299,7 +305,35 @@ describe("V2 Fighters", function () {
         expect(1).to.equal(2);
       } catch (e) {
         expect(e.message).to.equal(
-          "VM Exception while processing transaction: reverted with reason string 'Address Has Already Claimed'"
+          "VM Exception while processing transaction: reverted with reason string 'Nothing to Claim'"
+        );
+      }
+    });
+    it("Can't Claim Using Different Address Same Tokens", async function () {
+      const {
+        owner,
+        ebisusPaymentAddress,
+        dwsPaymentAddress,
+        fightersPaymentAddress,
+        nft,
+        marketplace,
+        v2,
+        testAddress,
+        testAddress2,
+      } = await loadFixture(deployContracts);
+      await v2.claimPause(false);
+      await nft.mint(4);
+      await v2.claim();
+      await nft.transferFrom(owner.address, testAddress.address, 1);
+      await nft.transferFrom(owner.address, testAddress.address, 2);
+      await nft.transferFrom(owner.address, testAddress.address, 3);
+      expect(await nft.balanceOf(testAddress.address)).to.equal(3);
+      try {
+        await v2.connect(testAddress).claim();
+        expect(1).to.equal(2);
+      } catch (e) {
+        expect(e.message).to.equal(
+          "VM Exception while processing transaction: reverted with reason string 'Nothing to Claim'"
         );
       }
     });

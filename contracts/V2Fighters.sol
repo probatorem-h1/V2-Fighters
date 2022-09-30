@@ -2653,6 +2653,21 @@ interface IDrop {
     function getInfo() external view returns (Info memory);
 }
 
+abstract contract V1Fighters is ERC721Enumerable {
+    function walletOfOwner(address _owner)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        uint256 ownerTokenCount = balanceOf(_owner);
+        uint256[] memory tokenIds = new uint256[](ownerTokenCount);
+        for (uint256 i; i < ownerTokenCount; i++) {
+            tokenIds[i] = tokenOfOwnerByIndex(_owner, i);
+        }
+        return tokenIds;
+    }
+}
+
 contract V2Fighters is
     ERC721Enumerable,
     Ownable,
@@ -2691,14 +2706,24 @@ contract V2Fighters is
     bool public claimPaused = true;
     bool internal airdropClaimed = false;
     mapping(address => bool) public whitelistedAddresses;
-    mapping(address => bool) internal hasClaimed;
+    mapping(uint256 => bool) internal claimChecker;
 
     constructor(
         string memory _name,
         string memory _symbol,
-        string memory _initBaseURI
+        string memory _initBaseURI,
+        address _marketAddress,
+        address _ebisusPaymentAddress,
+        address _V1Address,
+        address _dwsPaymentAddress,
+        address _fightersPaymentAddress
     ) RandomlyAssigned(maxTokens, reserveMintEnd + 1) ERC721(_name, _symbol) {
         setBaseURI(_initBaseURI);
+        marketAddress = _marketAddress;
+        ebisusPaymentAddress = _ebisusPaymentAddress;
+        fightersPaymentAddress = _fightersPaymentAddress;
+        dwsPaymentAddress = _dwsPaymentAddress;
+        V1Address = _V1Address;
     }
 
     // public
@@ -2737,12 +2762,21 @@ contract V2Fighters is
 
     function claim() public nonReentrant {
         require(!claimPaused, "Claim is paused");
-        require(!hasClaimed[msg.sender], "Address Has Already Claimed");
         uint256 supply = totalSupply();
-        uint256 balance = IERC721(V1Address).balanceOf(msg.sender);
+        uint256 balance;
+        uint256[] memory wallet = V1Fighters(V1Address).walletOfOwner(
+            msg.sender
+        );
+        require(wallet.length >= 3, "Insufficient Balance");
+        for (uint256 j = 0; j < wallet.length; j++) {
+            if (!claimChecker[wallet[j]]) {
+                claimChecker[wallet[j]] = true;
+                balance += 1;
+            }
+        }
+        require(balance > 0, "Nothing to Claim");
         uint256 claimAmount = balance / 3;
         require(claimAmount + supply <= maxTokens, "Max NFT Limit Exceeded");
-        hasClaimed[msg.sender] = true;
         if (claimAmount > 0) {
             for (uint256 i = 1; i <= claimAmount; i++) {
                 uint256 id = nextToken();
